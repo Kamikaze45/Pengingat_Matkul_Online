@@ -1,0 +1,163 @@
+@extends('layout.dosenlayouts')
+
+@section('title', 'Pengingat')
+
+@section('content')
+<!-- HEADER: paste langsung di atas <div class="container mt-4"> -->
+<header class="bg-white shadow py-2" style="position:sticky; top:0; z-index:1050;  border-bottom:3px solid #0d6efd;">
+  <div class="container-fluid d-flex align-items-center justify-content-between">
+    <!-- left: logo + app name + waktu -->
+    <div class="d-flex align-items-center gap-3">
+      
+
+      <!-- waktu (live clock) -->
+      <div class="ml-3">
+        <div class="text-primary" style="font-weight:600;">
+          Waktu Saat Ini : <span id="topClock">--:--:--</span>
+</div>
+      </div>
+    </div>
+
+    <!-- right: name + avatar + dropdown -->
+    <div class="d-flex align-items-center">
+      <div class="d-none d-sm-block text-right mr-3">
+        <div style="font-weight:700;color:#0b5ed7;">{{ strtoupper(Auth::user()?->nama_user ?? 'USER') }}</div>
+      </div>
+
+      <div class="dropdown">
+        @php
+          $profile = Auth::user()->profile ?? null;
+          $avatar = ($profile && !empty($profile->foto_profil)) ? asset('storage/'.$profile->foto_profil) : 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+        @endphp
+
+        <a class="d-flex align-items-center text-decoration-none" href="#" id="headerProfile" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <div style="position:relative;">
+            <img src="{{ $avatar }}" alt="avatar" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid rgba(13,110,253,0.12);">
+            <span style="position:absolute; right:-2px; bottom:-2px; width:12px; height:12px; background:#28a745; border-radius:50%; border:2px solid #fff; box-shadow:0 0 0 2px rgba(0,0,0,0.04)"></span>
+          </div>
+        </a>
+
+        <div class="dropdown-menu dropdown-menu-right shadow-sm" aria-labelledby="headerProfile" style="min-width:200px;">
+          <div class="px-3 py-2">
+            <strong>{{ Auth::user()?->nama_user ?? 'Pengguna' }}</strong>
+            <div class="small text-muted">{{ Auth::user()?->email ?? '' }}</div>
+          </div>
+          <div class="dropdown-divider"></div>
+          <a class="dropdown-item" href="{{ route('profile.view') }}"><i class="fa fa-user mr-2"></i> Profil saya</a>
+          <a class="dropdown-item" href="{{ route('pengingat.index') }}"><i class="fa fa-bell mr-2"></i> Pengingat</a>
+          <a class="dropdown-item" href="#" onclick="event.preventDefault(); document.getElementById('logout-form-top').submit();">
+            <i class="fa fa-sign-out-alt mr-2"></i> Logout
+          </a>
+          <form id="logout-form-top" action="{{ route('logout') }}" method="POST" class="d-none">@csrf</form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+<!-- /HEADER -->
+<div class="container mt-4">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fa fa-bell"></i> Pengingat</h2>
+</div>
+   <div class="mb-3 d-flex justify-content-between align-items-center">
+    <form class="form-inline d-flex" method="GET" action="{{ route('pengingat.index') }}">
+        <div class="input-group mr-2">
+            <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="Cari judul..." />
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="submit"><i class="fa fa-search"></i></button>
+            </div>
+        </div>
+
+        <div class="form-group mr-2">
+            <select name="status" class="form-control" onchange="this.form.submit()">
+                <option value="" {{ request('status') === null || request('status')==='' ? 'selected' : '' }}>Semua</option>
+                <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
+                <option value="inactive" {{ request('status') === 'inactive' ? 'selected' : '' }}>Nonaktif</option>
+            </select>
+        </div>
+
+        <a href="{{ route('pengingat.index') }}" class="btn btn-outline-secondary">Reset</a>
+    </form>
+
+    {{-- Tombol tambah atau info ringkas --}}
+    <div>
+        <a href="{{ route('pengingat.create') }}" class="btn btn-primary">Tambah Pengingat</a>
+    </div>
+</div>
+
+
+    @if(session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+
+            <table class="table table-hover mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Judul</th>
+                        <th>Hari</th>
+                        <th>Waktu</th>
+                        <th>Status</th>
+                        <th style="width:130px">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($pengingat as $p)
+                    <tr>
+                        <td>{{ $p->judul }}</td>
+
+                        {{-- tampilkan nama hari (accessor nama_hari di model) --}}
+                        <td>{{ $p->nama_hari ?? '-' }}</td>
+
+                        {{-- tampilkan waktu: pakai accessor waktu_carbon jika tersedia --}}
+                        <td>{{ optional($p->waktu_carbon)->format('H:i') ?? '-' }}</td>
+
+                        <td>
+                            @if($p->is_active)
+                                <span class="badge bg-success text-white">Aktif</span>
+                            @else
+                                <span class="badge bg-secondary text-white">Nonaktif</span>
+                            @endif
+                        </td>
+                        <td>
+    {{-- Toggle Status -> POST --}}
+    <form action="{{ route('pengingat.toggle', $p->id_pengingat) }}" method="POST" class="d-inline">
+        @csrf
+        <button class="btn btn-sm btn-warning" title="Toggle Status">
+            <i class="fa fa-power-off"></i>
+        </button>
+    </form>
+
+    {{-- Edit tetap pakai GET --}}
+    <a href="{{ route('pengingat.edit', $p->id_pengingat) }}" class="btn btn-sm btn-info text-white" title="Edit">
+        <i class="fa fa-edit"></i>
+    </a>
+
+    {{-- Hapus -> tetap POST --}}
+    <form action="{{ route('pengingat.destroy', $p->id_pengingat) }}" method="POST" class="d-inline"
+        onsubmit="return confirm('Hapus pengingat ini?')">
+        @csrf
+        <button class="btn btn-sm btn-danger" title="Hapus">
+            <i class="fa fa-trash"></i>
+        </button>
+    </form>
+</td>
+
+                    </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center p-3">Belum ada pengingat.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        {{ $pengingat->links() }}
+    </div>
+
+</div>
+@endsection
